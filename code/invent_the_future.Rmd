@@ -1,5 +1,5 @@
 ---
-  title: "Understanding the Spread of Influenza"
+  title: "Inferring the infection pathway of influenza"
 author: "Alice Yue; Maryam Hayati"
 date: '2018-07-09'
 output:
@@ -15,9 +15,10 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
 # 1. Prepare Packages and Sequence Data
 
-Before starting, install MAFFT @ (https://mafft.cbrc.jp/alignment/software/)
+before starting, install MAFFT @ (https://mafft.cbrc.jp/alignment/software/)
 
 ```{r}
+
 #load packages
 pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr")
 pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
@@ -49,21 +50,28 @@ nseq = 200 #number of sequences to sample
 system(paste("mafft ", seq_dir, " > ", align_dir, sep=""))
 align = read.dna(align_dir, format="fasta")
 
-set.seed(17)
-sam_ind = sample(c(1:nrow(align)), nseq, replace=FALSE, prob=NULL)
-
 ```
 
 # 3. Infer Phylogeny
 
 ## UPGMA
 
+calculate distance between sequences
+
 ```{r}
 
-#infer the tree using upgma
+set.seed(17)
+sam_ind = sample(c(1:nrow(align)), nseq, replace=FALSE, prob=NULL)
 align_n = align[sam_ind, ]
 align_n = as.phyDat(align_n)
 dm = dist.ml(align_n,model="JC69")
+
+```
+
+infer the tree using upgma
+
+```{r}
+
 tree_UPGMA = upgma(dm)
 plot(tree_UPGMA, show.tip.label=FALSE, main="UPGMA")
 
@@ -71,9 +79,10 @@ plot(tree_UPGMA, show.tip.label=FALSE, main="UPGMA")
 
 ## Neighbour Joining
 
+infer the tree using nj
+
 ```{r}
 
-#infer the tree using nj
 #mt = modelTest(align_n)
 #print(mt)
 tree_NJ = NJ(dm)
@@ -83,13 +92,21 @@ plot(tree, main="Phylogeny: Neighbour Joining", show.tip.label=FALSE)
 is.rooted(tree_NJ) #is tree rooted
 is.binary(tree_NJ) #are tree branches binary
 
-#But which of these trees is a better fit for your data? Using the parsimony() function,
-#you can compare their respective parsimony scores. 
+```
+
+but which of these trees is a better fit for your data? Using the parsimony() function, you can compare their respective parsimony scores. 
+
+```{r}
+
 parsimony(tree_UPGMA, align_n)
 parsimony(tree_NJ, align_n)
 
-#optim.parsimony tries to find the maximum parsimony tree using either Nearest Neighbor Interchange (NNI) rearrangements or 
-#sub tree pruning and regrafting (SPR).
+```
+
+optim.parsimony tries to find the maximum parsimony tree using either Nearest Neighbor Interchange (NNI) rearrangements or sub tree pruning and regrafting (SPR).
+
+```{r}
+
 tree_optim = optim.parsimony(tree_NJ,align_n)
 tree_pratchet = pratchet(align_n)
 plot(tree_optim, main="Phylogeny: Maximum Parsimony NNI", show.tip.label=FALSE)
@@ -99,43 +116,62 @@ plot(tree_pratchet, main="Phylogeny: Maximum Parsimony SPR", show.tip.label=FALS
 
 ## Maximum Likelihood
 
+maximum likelihood methods allow you to include the full data from your sequence alignment in a statistical framework that estimates model parameters.
+
+the first thing we need to do is create a special type of object of class “pml”. This object includes mostly our tree and data, but also parameters of an evolutionary model, their values (usually set to some default), and the likelihood of the model. 
+
 ```{r}
 
-# Maximum likelihood methods allow you to include the full data from your sequence alignment
-#in a statistical framework that estimates model parameters. 
-
-#The first thing we need to do is create a special type of object of class “pml”.
-#This object includes mostly our tree and data, but also parameters of an evolutionary model, 
-#their values (usually set to some default), and the likelihood of the model. 
 fit = pml(tree_NJ,align_n)
 print(fit)
 plot(fit, main="Phylogeny: Neighbour Joining (PML)", show.tip.label=FALSE)
 
-#function optim.pml() will optimize tree topology and branch length for your selected model of 
-#nucleotide evolution.
+```
+
+function optim.pml() will optimize tree topology and branch length for your selected model of nucleotide evolution.
+
+```{r}
+
 fitJC = optim.pml(fit, model="JC", rearrangement="stochastic")
 logLik(fitJC)
 plot(fitJC, main="Phylogeny: Neighbour Joining Optimized (PML)", show.tip.label=FALSE)
 
-#Note that the object returned by optim.pml is not a phylogeny, but an optimized object of class “pml” 
-#(which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
+```
+
+note that the object returned by optim.pml is not a phylogeny, but an optimized object of class “pml” (which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
+
+```{r}
+
 plot(fitJC$tree, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=FALSE)
 
 ```
 
 # 4. Map Visualization
 
+load all viral strains & their metadata
+
 ```{r}
 
 strains = sapply(strsplit(rownames(align)[sam_ind],"[-]"), function(x) x[1])
 meta = read.csv(meta_dir, row.names=1)
 
-#### TO-DO ####
-#infer ancestrial sequences
+```
 
-#match ancestrial sequences with those in strains that have a date preceding the ancestor's two child sequences
+infer ancestrial sequences
 
-#make nodelist virus & edgelist vphy
+```{r}
+
+```
+
+match ancestrial sequences with those in strains that have a date preceding the ancestor's two child sequences
+
+```{r}
+
+```
+
+make nodelist virus & edgelist vphy
+
+```{r}
 
 #viral strains
 virus
@@ -154,6 +190,12 @@ vphy$id = seq_len(nrow(vphy))
 #start_lat (latitude), 
 #end_long (longitude), 
 #end_lat (latitude)
+
+```
+
+plot map
+
+```{r}
 
 #map attributes
 geos = list(
@@ -183,8 +225,6 @@ p = plot_geo(locationmode = 'USA-states', color = I("red")) %>%
 
 #shareable link to map
 chart_link = api_create(p, filename="virus")
-
-
 
 
 ```
