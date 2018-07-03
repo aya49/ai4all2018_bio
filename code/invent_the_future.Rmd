@@ -1,0 +1,190 @@
+---
+  title: "Understanding the Spread of Influenza"
+author: "Alice Yue; Maryam Hayati"
+date: '2018-07-09'
+output:
+  pdf_document:
+  toc: yes
+  html_document:
+  toc: yes
+---
+  
+```{r, echo = FALSE, results='hide', message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# 1. Prepare Packages and Sequence Data
+
+Before starting, install MAFFT @ (https://mafft.cbrc.jp/alignment/software/)
+
+```{r}
+#load packages
+pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr")
+pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
+if (length(pkgs_ui) > 0) {
+  install.packages(pkgs_ui, verbose=F)
+  source("http://bioconductor.org/biocLite.R")
+  biocLite(pkgs_ui)
+}
+sapply(pkgs, require, character.only=TRUE)
+
+#set paths
+root = "~/projects/itf_bio"
+seq_dir = paste(root, "/data/FASTA.fa", sep="") #original genetic sequence
+meta_dir = paste(root, "/data/meta.csv", sep="")
+
+result_dir = "result"; dir.create(result_dir, showWarnings=F)
+align_dir = paste(root, "/", result_dir, "/alignment_mafft.fa", sep="")
+
+#options
+nseq = 200 #number of sequences to sample
+
+```
+
+# 2. Align Sequence Data
+
+```{r}
+
+#align sequences
+system(paste("mafft ", seq_dir, " > ", align_dir, sep=""))
+align = read.dna(align_dir, format="fasta")
+
+set.seed(17)
+sam_ind = sample(c(1:nrow(align)), nseq, replace=FALSE, prob=NULL)
+
+```
+
+# 3. Infer Phylogeny
+
+## UPGMA
+
+```{r}
+
+#infer the tree using upgma
+align_n = align[sam_ind, ]
+align_n = as.phyDat(align_n)
+dm = dist.ml(align_n,model="JC69")
+tree_UPGMA = upgma(dm)
+plot(tree_UPGMA, show.tip.label=FALSE, main="UPGMA")
+
+```
+
+## Neighbour Joining
+
+```{r}
+
+#infer the tree using nj
+#mt = modelTest(align_n)
+#print(mt)
+tree_NJ = NJ(dm)
+plot(tree_NJ, main="Phylogeny: Neighbour Joining", show.tip.label=FALSE)
+tree = ladderize(tree_NJ)
+plot(tree, main="Phylogeny: Neighbour Joining", show.tip.label=FALSE)
+is.rooted(tree_NJ) #is tree rooted
+is.binary(tree_NJ) #are tree branches binary
+
+#But which of these trees is a better fit for your data? Using the parsimony() function,
+#you can compare their respective parsimony scores. 
+parsimony(tree_UPGMA, align_n)
+parsimony(tree_NJ, align_n)
+
+#optim.parsimony tries to find the maximum parsimony tree using either Nearest Neighbor Interchange (NNI) rearrangements or 
+#sub tree pruning and regrafting (SPR).
+tree_optim = optim.parsimony(tree_NJ,align_n)
+tree_pratchet = pratchet(align_n)
+plot(tree_optim, main="Phylogeny: Maximum Parsimony NNI", show.tip.label=FALSE)
+plot(tree_pratchet, main="Phylogeny: Maximum Parsimony SPR", show.tip.label=FALSE)
+
+```
+
+## Maximum Likelihood
+
+```{r}
+
+# Maximum likelihood methods allow you to include the full data from your sequence alignment
+#in a statistical framework that estimates model parameters. 
+
+#The first thing we need to do is create a special type of object of class “pml”.
+#This object includes mostly our tree and data, but also parameters of an evolutionary model, 
+#their values (usually set to some default), and the likelihood of the model. 
+fit = pml(tree_NJ,align_n)
+print(fit)
+plot(fit, main="Phylogeny: Neighbour Joining (PML)", show.tip.label=FALSE)
+
+#function optim.pml() will optimize tree topology and branch length for your selected model of 
+#nucleotide evolution.
+fitJC = optim.pml(fit, model="JC", rearrangement="stochastic")
+logLik(fitJC)
+plot(fitJC, main="Phylogeny: Neighbour Joining Optimized (PML)", show.tip.label=FALSE)
+
+#Note that the object returned by optim.pml is not a phylogeny, but an optimized object of class “pml” 
+#(which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
+plot(fitJC$tree, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=FALSE)
+
+```
+
+# 4. Map Visualization
+
+```{r}
+
+strains = sapply(strsplit(rownames(align)[sam_ind],"[-]"), function(x) x[1])
+meta = read.csv(meta_dir, row.names=1)
+
+#### TO-DO ####
+#infer ancestrial sequences
+
+#match ancestrial sequences with those in strains that have a date preceding the ancestor's two child sequences
+
+#make nodelist virus & edgelist vphy
+
+#viral strains
+virus
+#columns: 
+#long (longitude), 
+#lat (latitude), 
+#strain (strain name), 
+#sig (size of virus impact for plot size), 
+#time (tiem of infection?), etc.
+
+#viral phylogeny
+vphy
+vphy$id = seq_len(nrow(vphy))
+#columns:
+#start_long (longitude), 
+#start_lat (latitude), 
+#end_long (longitude), 
+#end_lat (latitude)
+
+#map attributes
+geos = list(
+  #scope = 'north america',
+  projection = list(type = 'azimuthal equal area'),
+  showland = TRUE,
+  landcolor = toRGB("gray95"),
+  countrycolor = toRGB("gray80")
+)
+
+#map plot
+p = plot_geo(locationmode = 'USA-states', color = I("red")) %>%
+  add_markers(
+    data = virus, x = ~long, y = ~lat, text = ~strain,
+    size = ~sig, hoverinfo = "text", alpha = 0.5
+  ) %>%
+  add_segments(
+    data = group_by(vphy, id),
+    x = ~start_lon, xend = ~end_lon,
+    y = ~start_lat, yend = ~end_lat,
+    alpha = 0.3, size = I(1), hoverinfo = "none"
+  ) %>%
+  layout(
+    title='Influenza Virus Infection Map',
+    geo=geos, showlegend=FALSE, heights=800
+  )
+
+#shareable link to map
+chart_link = api_create(p, filename="virus")
+
+
+
+
+```
