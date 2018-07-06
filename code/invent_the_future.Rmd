@@ -19,17 +19,11 @@ before starting, install MAFFT @ (https://mafft.cbrc.jp/alignment/software/)
 
 ```{r}
 #load packages
-pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr")
-pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
-if (length(pkgs_ui) > 0) {
-  install.packages(pkgs_ui, verbose=F)
-  source("http://bioconductor.org/biocLite.R")
-  biocLite(pkgs_ui)
-}
+pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr", "seqLogo")
 sapply(pkgs, require, character.only=TRUE)
 
 #set paths
-root = "~/projects/itf_bio"
+root = "~/projects/ai4all-sfu_bio"
 seq_dir = paste(root, "/data/FASTA.fa", sep="") #original genetic sequence
 meta_dir = paste(root, "/data/meta.csv", sep="")
 
@@ -37,7 +31,7 @@ result_dir = "result"; dir.create(result_dir, showWarnings=F)
 align_dir = paste(root, "/", result_dir, "/alignment_mafft.fa", sep="")
 
 #options
-nseq = 200 #number of sequences to sample
+nseq = 200 #number of sequences to sample; 2nseq < total_no_of_sequences
 ```
 
 # 2. Align Sequence Data
@@ -45,7 +39,16 @@ nseq = 200 #number of sequences to sample
 ```{r}
 #align sequences
 system(paste("mafft ", seq_dir, " > ", align_dir, sep=""))
+
 align = read.dna(align_dir, format="fasta")
+strains = sapply(strsplit(rownames(align),"[-]"), function(x) x[1])
+dates = as.Date(sapply(strsplit(rownames(align),"[-]"), function(x) x[2]))
+
+#reorder
+ord = order(dates, decreasing=TRUE)
+align = align[ord,]
+strains = strains[ord]
+dates = dates[ord]
 ```
 
 # 3. Infer Phylogeny
@@ -56,7 +59,7 @@ calculate distance between sequences
 
 ```{r}
 set.seed(17)
-sam_ind = sample(c(1:nrow(align)), nseq, replace=FALSE, prob=NULL)
+sam_ind = sample(c(1:min(2*nseq,nrow(align))), nseq, replace=FALSE, prob=NULL) #sample for more recent strains
 align_n = align[sam_ind, ]
 align_n = as.phyDat(align_n)
 dm = dist.ml(align_n,model="JC69")
@@ -123,7 +126,8 @@ plot(fitJC, main="Phylogeny: Neighbour Joining Optimized (PML)", show.tip.label=
 note that the object returned by optim.pml is not a phylogeny, but an optimized object of class “pml” (which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
 
 ```{r}
-plot(fitJC$tree, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=FALSE)
+tree_JC = fitJC$tree
+plot(tree_JC, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=FALSE)
 ```
 
 # 4. Map Visualization
@@ -131,19 +135,79 @@ plot(fitJC$tree, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.ti
 load all viral strains & their metadata
 
 ```{r}
-strains = sapply(strsplit(rownames(align)[sam_ind],"[-]"), function(x) x[1])
-meta = read.csv(meta_dir, row.names=1)
+
+meta = read.csv(meta_dir, row.names=1) ### ??? WHERE TO DOWNLOAD!!!!
 ```
 
-infer ancestrial sequences
+reconstruct ancestrial sequences
 
 ```{r}
+#convert alignment format
+align_npd = phyDat(align_n) 
+
+#what trees we want to do ancestral sequence reconstruction for?
+tree_type = "NJ"
+tree = tree_NJ
+fitpml_type = "NJ_JC"
+fitpml = fitJC
+
+#parsimony reconstructions: based on the fitch algorithm for bifurcating trees (note: there will be often no unique solution)
+anc_mpr = ancestral.pars(tree, align_npd, "MPR")
+plotAnc(tree, anc.mpr, cex.pie=.5, show.tip.label=FALSE)
+title(paste0(tree_type, ": MPR"))
+
+anc_acctran = ancestral.pars(tree, align_npd, "ACCTRAN")
+plotAnc(tree, anc.acctran, cex.pie=.5, show.tip.label=FALSE)
+title(paste0(tree_type, ": ACCTRAN"))
+
+# #see subset of inferred sequence
+# seqLogo(t(subset(anc.mpr, getRoot(tree), 1:20)[[1]]), ic.scale=FALSE)
+
+# #maximum likelihood reconstructions
+# anc_ml = ancestral.pml(fitpml, "ml")
+# plotAnc(tree, anc_ml, cex.pie=.5, show.tip.label=FALSE)
+# title(paste0(fitpml_type, " PML: Max Likelihood"))
+# 
+# anc_bayes = ancestral.pml(fitpml, "bayes")
+# plotAnc(tree, anc_bayes, cex.pie=.5, show.tip.label=FALSE)
+# title(paste0(fitpml_type, " PML: Bayes"))
 
 ```
 
 match ancestrial sequences with those in strains that have a date preceding the ancestor's two child sequences
 
+here we assume there are at least 2 layers in a tree and that 2nseq<=nrow(align)
+
 ```{r}
+#what anccestral reconstruction sequences we want to map out?
+anc_type = "parsimony_acctran"
+anc = phyDat(anc_acctran)
+edges = tree$edge[order(tree$edge[,2]),] #first nseq nodes are leaves
+
+#get sequences ready!
+sequ = read.dna(seq_dir, format="fasta")
+sequ_non = sequ[!names(sequ)%in%rownames(align)[sam_ind]]
+
+#get distances ready
+dm_all = dist.ml(phyDat(align_anc),model="JC69")
+
+#get alignments ready
+align_non = align[!sam_ind]
+
+gsub(" ","_",gsub("[:]","-",Sys.time()))
+
+
+leaves = 1:nseq
+root = unique(edges[!edges[,1]%in%edges[,2],1])
+while (length(leaves)>0) {
+  parents = unique(edges[edges[,2]%in%leaves,1])
+  for (parent in parents) {
+    parent_seq = colnames(anc[[parent]])[apply(parent_seq, 1, function(x) which.max(x))]
+    
+  }
+  leaves = parents
+}
+
 
 ```
 

@@ -1,0 +1,45 @@
+---
+  title: "install software for linux"
+author: "Alice Yue; Maryam Hayati"
+date: '2018-07-09'
+output:
+  html_document:
+  toc: yes
+---
+  
+```{r, echo = FALSE, results='hide', message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+
+```{bash}
+#insall mafft
+wget https://mafft.cbrc.jp/alignment/software/mafft_7.402-1_amd64.deb
+dpkg -i mafft_7.402-1_amd64.deb
+exit
+
+#install openssl
+wget https://www.openssl.org/source/openssl-1.1.1-pre8.tar.gz
+tar -xvzf openssl-1.1.1-pre8.tar.gz 
+cd openssl-1.1.1-pre8/
+./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
+make
+sudo make install
+
+#install libssl, libcurl
+sudo apt-get install libssl-dev
+apt-get install libcurl4-openssl-dev
+```
+
+```{r}
+#install r packages
+pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr", "seqLogo")
+
+pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
+if (length(pkgs_ui) > 0) {
+  install.packages(pkgs_ui, verbose=F)
+  # source("http://bioconductor.org/biocLite.R")
+  # biocLite(pkgs_ui)
+}
+```
+
