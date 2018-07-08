@@ -1,0 +1,40 @@
+---
+title: "install packages for linux and r"
+author: "aya43@sfu.ca"
+date: "2018-07-09"
+output:
+  html_document:
+    theme: yeti
+    highlight: "neon"
+    number_sections: true
+    toc: true
+    toc_float: 
+      collapsed: true
+      smooth_scroll: false
+---
+
+# install mafft @ (https://mafft.cbrc.jp/alignment/software/)
+
+```{bash}
+wget https://mafft.cbrc.jp/alignment/software/mafft_7.402-1_amd64.deb
+dpkg -i mafft_7.402-1_amd64.deb
+exit
+```
+
+# install openssl
+
+```{bash}
+wget https://www.openssl.org/source/openssl-1.1.1-pre8.tar.gz
+tar -xvzf openssl-1.1.1-pre8.tar.gz 
+cd openssl-1.1.1-pre8/
+./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
+make
+sudo make install
+```
+
+# install libssl, libcurl
+
+```{bash}
+sudo apt-get install libssl-dev
+apt-get install libcurl4-openssl-dev
+```
