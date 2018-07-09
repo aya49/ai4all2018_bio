@@ -24,7 +24,7 @@ code:
  
 data_: contains original data (not to be modified)
 - FASTA.fa: viral strain sequences
-- meta\_\<database\>: metadata from different databases; ncbi has country and all strains, fludb has country & state and some strains
+- meta_\<database\>: metadata from different databases; ncbi has country and all strains, fludb has country & state and some strains
 
 data: contains processed data
 - FASTA.fa: viral strain sequences sorted by date (output of [code/prep_data.R](code/prep_data.R))
@@ -33,10 +33,10 @@ data: contains processed data
 
 result/\<date\>\_\<time\>: results separated by time of making (output of [code/main.Rmd](code/main.Rmd))
 - ind.csv: randomly sampled strain names of 200 recent viral sequences
-- FASTA\_anc.fa: reconstructed ancestral sequences
-- FASTA\_all.fa: data/FASTA.fa (minus the 200 sequences) + reconstructed ancestral sequences
-- alignment\_anc.fa: alignment of sequences in FASTA\_all.fa
-- dm\_anc.Rdata: distance matrix made using alignment\_anc.fa
+- FASTA_anc.fa: reconstructed ancestral sequences
+- FASTA_all.fa: data/FASTA.fa (minus the 200 sequences) + reconstructed ancestral sequences
+- alignment_anc.fa: alignment of sequences in FASTA_all.fa
+- dm_anc.Rdata: distance matrix made using alignment_anc.fa
 
 
 
