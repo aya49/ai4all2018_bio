@@ -1,5 +1,5 @@
 # bio
-**The bioinformatics project**: *Inferring the infection pathway of influenza*
+**The bioinformatics project**: Inferring the infection pathway of influenza
 
 2018 SFU Invent the Future
 
@@ -14,3 +14,33 @@ Homepage: https://sites.google.com/view/ai4all-sfu2018/projects/bioinformatics
 Github repository: https://github.com/ai4all-sfu/bio
 
 Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1_a4lo_aJa3o/edit?usp=sharing
+
+## folder/file structure
+code:
+- [prep_linux.Rmd](code/prep_linux.Rmd): only for linux; install some packages
+- [prep_data.R](code/prep_data.R): preprocess data
+- [main.Rmd](code/main.Rmd): main curriculum
+
+ 
+data_: contains original data (not to be modified)
+- FASTA.fa: viral strain sequences
+- meta_<database>: metadata from different databases; ncbi has country and all strains, fludb has country & state and some strains
+
+data: contains processed data
+- FASTA.fa: viral strain sequences sorted by date (output of [code/prep_data.R](code/prep_data.R))
+- meta.csv: metadata merged, and sorted by date the same way as FASTA.fa (output of [code/prep_data.R](code/prep_data.R))
+- alignment.fa: viral strain sequence alignments of mafft made using [data/FASTA.fa](data/FASTA.fa) (output of [code/main.Rmd](code/main.Rmd))
+
+result/<date>_<time>: results separated by time of making (output of [code/main.Rmd](code/main.Rmd))
+- ind.csv: randomly sampled strain names of 200 recent viral sequences
+- FASTA_anc.fa: reconstructed ancestral sequences
+- FASTA_all.fa: data/FASTA.fa (minus the 200 sequences) + reconstructed ancestral sequences
+- alignment_anc.fa: alignment of sequences in FASTA_all.fa
+- dm_anc.Rdata: distance matrix made using alignment_anc.fa
+
+
+
+
+
+
+

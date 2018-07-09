@@ -5,7 +5,7 @@ date: '2018-07-09'
 output:
   html_document:
     theme: yeti
-    highlight: "neon"
+    highlight: "zenburn"
     number_sections: true
     toc: true
     toc_float: 
@@ -16,40 +16,58 @@ output:
 
 # logistics
 
-```{r warning=FALSE}
+remember to edit "root" to your home directory!
+
+```{r warning=F}
 # load packages
-pkgs = c("ape", "phangorn", "seqinr", "phytools", "plotly", "dplyr", "seqLogo")
+pkgs = c("ape", "phangorn", "seqinr", "phytools", 
+         "plotly", "dplyr", "tidyr", "seqLogo", "Matrix",
+         "geosphere", "leaflet")
 pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
 if (length(pkgs_ui) > 0) install.packages(pkgs_ui, verbose=F)
-sapply(pkgs, require, character.only=TRUE)
+sapply(pkgs, require, character.only=T)
 
 # set paths
 root = "~/projects/ai4all-sfu_bio"
 
 seq_dir = paste(root, "/data/FASTA.fa", sep="") #original genetic sequence
 meta_dir = paste(root, "/data/meta.csv", sep="")
+align_dir = paste(root, "/data/alignment.fa", sep="")
 
-result_dir = paste(root, "/result", sep=""); dir.create(result_dir, showWarnings=F)
-align_dir = paste(result_dir, "/alignment_mafft.fa", sep="")
+result_dir_ = paste(root, "/result", sep=""); dir.create(result_dir_, showWarnings=F)
+
+# use a previous result; set to "" if starting anew
+result_time_ = ""
 
 # options
-nseq = 200 #number of sequences to sample; 2nseq < total_no_of_sequences
+nseq = 200 #number of sequences to sample; 2*nseq < total # of sequences
 ```
 
-# prepare influenza virus genetic sequences, alignments, and metadata
+## align influenza virus genetic sequences
 
-```{r warning=FALSE}
-# load sequences
-sequ = read.dna(seq_dir, format="fasta")
-
-# align sequences; to align sequences, install mafft @ (https://mafft.cbrc.jp/alignment/software/)
+```{r message=F, warning=F}
+# load sequence alignments; to align sequences, install mafft @ (https://mafft.cbrc.jp/alignment/software/)
 if (!file.exists(align_dir)) system(paste("mafft ", seq_dir, " > ", align_dir, sep=""))
-
 align = read.dna(align_dir, format="fasta")
-strains = sapply(strsplit(rownames(align),"[-]"), function(x) x[1])
-dates = as.Date(sapply(strsplit(rownames(align),"[-]"), function(x) x[2]))
+strains_id = rownames(align)
+strains = sapply(strsplit(strains_id,"[-]"), function(x) x[1])
+dates = as.Date(sapply(strsplit(strains_id,"[-]"), function(x) x[2]))
+```
 
-meta = read.csv(meta_dir, row.names=1)
+## load/subset results
+
+```{r}
+#sample for more recent strains
+set.seed(17)
+result_time = ifelse(result_time_=="", gsub(" ", "_", gsub("[:]", "-", Sys.time())), result_time_)
+result_dir = paste(result_dir_, "/", result_time, sep=""); dir.create(result_dir, showWarnings=F)
+ind_dir = paste(result_dir, "/ind.csv", sep="")
+
+if (result_time_ == "") {
+  sam_ind = rownames(align)[sample(c(1:min(2*nseq,nrow(align))), nseq, replace=F, prob=NULL)]
+  write.csv(sam_ind, file=ind_dir, row.names=F)
+}
+sam_ind = read.csv(ind_dir, stringsAsFactors=F)[,1]
 ```
 
 # infer phylogeny (ancestral tree)
@@ -59,18 +77,16 @@ meta = read.csv(meta_dir, row.names=1)
 calculate distance between sequences
 
 ```{r}
-set.seed(17)
-sam_ind = sample(c(1:min(2*nseq,nrow(align))), nseq, replace=FALSE, prob=NULL) #sample for more recent strains
-align_n = align[sam_ind, ]
+align_n = align[sam_ind,]
 align_n = as.phyDat(align_n)
-dm = dist.ml(align_n,model="JC69")
+dm = dist.ml(align_n, model="JC69")
 ```
 
 infer the tree using upgma
 
 ```{r}
 tree_UPGMA = upgma(dm)
-plot(tree_UPGMA, show.tip.label=FALSE, main="UPGMA")
+plot(tree_UPGMA, show.tip.label=F, main="UPGMA")
 ```
 
 ## neighbour joining (nj)
@@ -81,9 +97,9 @@ infer the tree using nj
 # mt = modelTest(align_n)
 # print(mt)
 tree_NJ = NJ(dm)
-plot(tree_NJ, main="Phylogeny: Neighbour Joining", show.tip.label=FALSE)
+plot(tree_NJ, main="Phylogeny: Neighbour Joining", show.tip.label=F)
 tree = ladderize(tree_NJ)
-plot(tree, main="Phylogeny: Neighbour Joining", show.tip.label=FALSE)
+plot(tree, main="Phylogeny: Neighbour Joining", show.tip.label=F)
 is.rooted(tree_NJ) #is tree rooted
 is.binary(tree_NJ) #are tree branches binary
 ```
@@ -100,8 +116,8 @@ optim.parsimony tries to find the maximum parsimony tree using either Nearest Ne
 ```{r}
 tree_optim = optim.parsimony(tree_NJ,align_n)
 tree_pratchet = pratchet(align_n)
-plot(tree_optim, main="Phylogeny: Maximum Parsimony NNI", show.tip.label=FALSE)
-plot(tree_pratchet, main="Phylogeny: Maximum Parsimony SPR", show.tip.label=FALSE)
+plot(tree_optim, main="Phylogeny: Maximum Parsimony NNI", show.tip.label=F)
+plot(tree_pratchet, main="Phylogeny: Maximum Parsimony SPR", show.tip.label=F)
 ```
 
 ## maximum likelihood
@@ -113,7 +129,7 @@ the first thing we need to do is create a special type of object of class “pml
 ```{r}
 fit = pml(tree_NJ,align_n)
 print(fit)
-plot(fit, main="Phylogeny: Neighbour Joining (PML)", show.tip.label=FALSE)
+plot(fit, main="Phylogeny: Neighbour Joining (PML)", show.tip.label=F)
 ```
 
 function optim.pml() will optimize tree topology and branch length for your selected model of nucleotide evolution.
@@ -121,146 +137,148 @@ function optim.pml() will optimize tree topology and branch length for your sele
 ```{r}
 fitJC = optim.pml(fit, model="JC", rearrangement="stochastic")
 logLik(fitJC)
-plot(fitJC, main="Phylogeny: Neighbour Joining Optimized (PML)", show.tip.label=FALSE)
+plot(fitJC, main="Phylogeny: Neighbour Joining Optimized (PML)", show.tip.label=F)
 ```
 
-note that the object returned by optim.pml is not a phylogeny, but an optimized object of class “pml” (which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
+note that the object returned by optim.pml is not a phylogeny, but an optimized object of class "pml" (which contains an optimized phylogeny with edge lengths). Let’s plot this phylogeny:
 
 ```{r}
 tree_JC = fitJC$tree
-plot(tree_JC, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=FALSE)
+plot(tree_JC, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.label=F)
 ```
 
 # infer ancestral sequences
 
-load all viral strains & their metadata
+## reconstruct ancestrial sequences
 
 ```{r}
+# what tree do we want to do ancestral sequence reconstruction for?
+tree_type = "NJ"
+tree = tree_NJ
 
-```
-
-reconstruct ancestrial sequences
-
-```{r}
 # convert alignment format
 align_npd = phyDat(align_n) 
 
-# what trees do we want to do ancestral sequence reconstruction for?
-tree_type = "NJ"
-tree = tree_NJ
-fitpml_type = "NJ_JC"
-fitpml = fitJC
-
 # parsimony reconstructions: based on the fitch algorithm for bifurcating trees (note: there will be often no unique solution)
-anc_mpr = ancestral.pars(tree, align_npd, "MPR")
-plotAnc(tree, anc.mpr, cex.pie=.5, show.tip.label=FALSE)
-title(paste0(tree_type, ": MPR"))
-
-anc_acctran = ancestral.pars(tree, align_npd, "ACCTRAN")
-plotAnc(tree, anc.acctran, cex.pie=.5, show.tip.label=FALSE)
+anc = ancestral.pars(tree, align_npd, "ACCTRAN")
+plotAnc(tree, anc, cex.pie=.5, show.tip.label=F)
 title(paste0(tree_type, ": ACCTRAN"))
-
-# #see subset of inferred sequence
-# seqLogo(t(subset(anc.mpr, getRoot(tree), 1:20)[[1]]), ic.scale=FALSE)
-
-# #maximum likelihood reconstructions
-# anc_ml = ancestral.pml(fitpml, "ml")
-# plotAnc(tree, anc_ml, cex.pie=.5, show.tip.label=FALSE)
-# title(paste0(fitpml_type, " PML: Max Likelihood"))
-# 
-# anc_bayes = ancestral.pml(fitpml, "bayes")
-# plotAnc(tree, anc_bayes, cex.pie=.5, show.tip.label=FALSE)
-# title(paste0(fitpml_type, " PML: Bayes"))
-
 ```
 
-match ancestrial sequences with those in strains that have a date preceding the ancestor's two child sequences
+## match ancestral sequences with known strains
 
-here we assume there are at least 2 layers in a tree and that 2nseq<=nrow(align)
+align known influenza virus with ancestral sequences; known strains must have a date preceding their child strains; we assume there are at least 2 layers in a tree
 
 ```{r}
-# what anccestral reconstruction sequences we want to map out?
-anc_type = "parsimony_acctran"
-anc = phyDat(anc_acctran)
-edges = tree$edge[order(tree$edge[,2]),] #first nseq nodes are leaves
+# get sequences ready (combine ancestral with known strains)
+seqa_dir = paste(result_dir, "/FASTA_anc.fa", sep="")
+sequ_anc = as.DNAbin(lapply(anc, function(x) colnames(x)[apply(x,1,function(y) which.max(y))] ))
+write.dna(sequ_anc, file=seqa_dir, format="fasta")
 
-# get sequences ready!
-sequ_non = sequ[!names(sequ)%in%rownames(align)[sam_ind]]
+sequ = read.dna(seq_dir, format="fasta")
+sequ_anc = read.dna(seqa_dir, format="fasta", as.matrix=F)
 
-# get distances ready
-dm_all = dist.ml(phyDat(align_anc),model="JC69")
+seq_all_dir = paste(result_dir, "/FASTA_all.fa", sep="")
+sequ_all = append(sequ_anc, sequ)
+sequ_all = sequ_all[!(duplicated(names(sequ_all)) | duplicated(names(sequ_all),fromLast=T))] # leaf sequences not included in distance calulcation
+write.dna(sequ_all, file=seq_all_dir, format="fasta")
 
-# get alignments ready
-align_non = align[!sam_ind]
-
-gsub(" ","_",gsub("[:]","-",Sys.time()))
-
-
-leaves = 1:nseq
-root = unique(edges[!edges[,1]%in%edges[,2],1])
-while (length(leaves)>0) {
-  parents = unique(edges[edges[,2]%in%leaves,1])
-  for (parent in parents) {
-    parent_seq = colnames(anc[[parent]])[apply(parent_seq, 1, function(x) which.max(x))]
-    
-  }
-  leaves = parents
-}
-
-
+# align sequences, install mafft @ (https://mafft.cbrc.jp/alignment/software/)
+align_anc_dir = paste(result_dir, "/alignment_anc.fa", sep="")
+if (!file.exists(align_anc_dir)) system(paste("mafft ", seq_all_dir, " > ", align_anc_dir, sep=""))
+align_anc = read.dna(align_anc_dir, format="fasta")
 ```
 
-make nodelist virus & edgelist vphy
+calculate distance (ancestral sequences x known sequences) from alignments
+
+```{r}
+# get distances ready
+dm_anc_dir = paste(result_dir, "/dm_anc.Rdata", sep="")
+if (!file.exists(dm_anc_dir)) {
+  dm_anc = dist.ml(phyDat(align_anc),model="JC69")
+  save(dm_anc, file=dm_anc_dir)
+}
+dm_anc = as.matrix(get(load(dm_anc_dir)), sparse=T)
+dm_anc = dm_anc[!rownames(dm_anc)%in%strains_id, colnames(dm_anc)%in%strains_id]
+strains_anc = sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[1])
+dates_anc = as.Date(sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[2]))
+names(dates_anc) = strains_anc
+```
+
+label tree nodes
+
+```{r}
+evo_month = 444 # max number of months needed for a parent strain to evolve into a child strain (max = 444)
+
+# load metadata
+meta = read.csv(meta_dir, stringsAsFactors=1)[,-1]
+rownames(meta) = meta[,"strain"]
+
+# label nodes starting from root using depth first search
+edges = tree$edge[order(tree$edge[,2]),] #first nseq nodes are leaves
+edges[1:nseq,2] = tree$tip.label
+edges[,2] = sapply(strsplit(edges[,2], "[-]"), function(x) x[1])
+
+tree_labelled = T
+nodes = unique(as.vector(edges))
+node = unique(edges[!edges[,1]%in%edges[,2],1]) #root
+while (sum(!nodes%in%strains)>0) {
+  children = sapply(strsplit(edges[edges[,1]==node, 2], "[-]"), function(x) x[1])
+  if (any(!children%in%strains)) {
+    node = children[!children%in%strains]
+    node = node[1]
+  } else {
+    min_date = min(as.Date(as.character(meta[children, "date"])))
+    min_date_ = seq(min_date, length=2, by="-6 months")[2]
+    dm_colind = which(dates_anc < min_date & dates_anc > min_date_ &
+                        !names(dates_anc)%in%edges)
+    if (length(dm_colind)==0) {
+      print("incomplete! need data on older strains")
+      tree_labelled = F; break()
+    }
+    edges[edges==node] = nodes[nodes==node] = node_strain = 
+      names(dm_colind[which.min(dm_anc[node, dm_colind])])
+    # nodes_in = setdiff(nodes_in, node)
+    node = edges[edges[,2]==node_strain, 1]
+  }
+}
+```
+
+## plot
+
+prepare nodelist virus & edgelist vphy
 
 ```{r}
 # viral strains
-virus
-# columns: 
-# long (longitude), 
-# lat (latitude), 
-# strain (strain name), 
-# sig (size of virus impact for plot size), 
-# time (tiem of infection?), etc.
+virus = meta[nodes, c("strain", "subtype", "date", "lng", "lat")]
 
 # viral phylogeny
-vphy
-vphy$id = seq_len(nrow(vphy))
-# columns:
-# start_long (longitude), 
-# start_lat (latitude), 
-# end_long (longitude), 
-# end_lat (latitude)
+vphy = data.frame(id=seq_len(nrow(edges)),
+                  start_lng=meta[edges[,1], "lng"], start_lat=meta[edges[,1], "lat"],
+                  end_lng=meta[edges[,2], "lng"], end_lat=meta[edges[,2], "lat"])
 ```
 
 plot map
 
 ```{r}
-# map attributes
-geos = list(
-  #scope = 'north america',
-  projection = list(type = 'azimuthal equal area'),
-  showland = TRUE,
-  landcolor = toRGB("gray95"),
-  countrycolor = toRGB("gray80")
-)
+# heat colours: red (early) to yellow (recent)
+colours = sapply(heat.colors(length(unique(meta$date))), function(x) gsub("FF$","",x))
+names(colours) = sort(unique(meta$date))
 
-# map plot
-p = plot_geo(locationmode = 'USA-states', color = I("red")) %>%
-  add_markers(
-    data = virus, x = ~long, y = ~lat, text = ~strain,
-    size = ~sig, hoverinfo = "text", alpha = 0.5
-  ) %>%
-  add_segments(
-    data = group_by(vphy, id),
-    x = ~start_lon, xend = ~end_lon,
-    y = ~start_lat, yend = ~end_lat,
-    alpha = 0.3, size = I(1), hoverinfo = "none"
-  ) %>%
-  layout(
-    title='Influenza Virus Infection Map',
-    geo=geos, showlegend=FALSE, heights=800
-  )
+# phylogeny edges
+geo_lines = gcIntermediate(vphy[,c("start_lng", "start_lat")], 
+                           vphy[,c("end_lng", "end_lat")], 
+                           n=200, addStartEnd=T, sp=T, breakAtDateLine=T)
 
-# shareable link to map
-chart_link = api_create(p, filename="virus")
+# map
+leaflet() %>% 
+  addMiniMap(tiles = providers$Esri.OceanBasemap, width = 120, height=80) %>%
+  addProviderTiles(providers$Esri.OceanBasemap) %>% 
+  addCircleMarkers(data=virus, lng=~lng, lat=~lat,
+                   color = as.vector(colours[virus[,"date"]]), weight=2, radius=2,
+                   label=paste(virus[,"subtype"], " (", 
+                               virus[,"strain"], ") ", 
+                               virus[,"date"], sep="")) %>%
+  addPolylines(data=geo_lines, color = as.vector(colours[meta[edges[,2],"date"]]),
+               weight = 1, opacity = 0.5, fill = FALSE, fillOpacity = 0.5, label = NULL)
 ```
