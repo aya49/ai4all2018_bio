@@ -27,7 +27,7 @@ Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1
 code, ran in the following order
 - [prep_linux.Rmd](prep_linux.Rmd): only for linux users; installs necessary system packages
 - [prep_data.R](prep_data.R): preprocess data
-- [main.Rmd](main.Rmd): main curriculum; markdown render [main.md](main.md), html render [main.html](main.html), and resources [main_files](main_files)
+- [main.Rmd](main.Rmd): main curriculum; html render [main.html](main.html)
 
 data_ folder contains original data (not to be modified)
 - FASTA.fa: viral strain sequences
