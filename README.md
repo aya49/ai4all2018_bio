@@ -15,23 +15,30 @@ Github repository: https://github.com/ai4all-sfu/bio
 
 Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1_a4lo_aJa3o/edit?usp=sharing
 
-## folder/file structure
-code:
-- [prep_linux.Rmd](code/prep_linux.Rmd): only for linux; install some packages
-- [prep_data.R](code/prep_data.R): preprocess data
-- [main.Rmd](code/main.Rmd): main curriculum
 
- 
-data_: contains original data (not to be modified)
+## usage
+
+1. install mafft (for multiple sequence alignment) @ [https://mafft.cbrc.jp/alignment/software/](https://mafft.cbrc.jp/alignment/software/)
+
+2. download this repository and follow the R code in **[main.html](main.html)** (its resources are in [main_files](main_files)); remember to **change the variable "root"** to the local folder you downloaded this repository to!
+
+## folder/file structure
+
+code, ran in the following order
+- [prep_linux.Rmd](prep_linux.Rmd): only for linux users; installs necessary system packages
+- [prep_data.R](prep_data.R): preprocess data
+- [main.Rmd](main.Rmd): main curriculum; markdown render [main.md](main.md), html render [main.html](main.html), and resources [main_files](main_files)
+
+data_ folder contains original data (not to be modified)
 - FASTA.fa: viral strain sequences
 - meta\_\<database\>: metadata from different databases; ncbi has country and all strains, fludb has country & state and some strains
 
-data: contains processed data
-- FASTA.fa: viral strain sequences sorted by date (output of [code/prep_data.R](code/prep_data.R))
-- meta.csv: metadata merged, and sorted by date the same way as FASTA.fa (output of [code/prep_data.R](code/prep_data.R))
-- alignment.fa: viral strain sequence alignments of mafft made using [data/FASTA.fa](data/FASTA.fa) (output of [code/main.Rmd](code/main.Rmd))
+data folder contains processed data (output of [prep_data.R](prep_data.R))
+- FASTA.fa: the HA gene sequence in influenza subtype A/H3N2 from years 1997 - 2017 (sorted by date) (n = 10370)
+- meta.csv: metadata merged, and sorted by date the same way as FASTA.fa 
+- alignment.fa: viral strain sequence alignments of mafft made using FASTA.fa (output of [main.Rmd](main.Rmd))
 
-result/\<date\>\_\<time\>: results separated by time of making (output of [code/main.Rmd](code/main.Rmd))
+result/\<date\>\_\<time\> folder contains results separated by time of making (output of [main.Rmd](main.Rmd))
 - ind.csv: randomly sampled strain names of 200 recent viral sequences
 - FASTA\_anc.fa: reconstructed ancestral sequences
 - FASTA\_all.fa: data/FASTA.fa (minus the 200 sequences) + reconstructed ancestral sequences
