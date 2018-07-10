@@ -12,7 +12,7 @@ output:
       collapsed: true
       smooth_scroll: true
     df_print: paged
-    keep_md: true
+    # keep_md: true
   # md_document:
   #   variant: markdown_github
 ---
@@ -204,11 +204,12 @@ calculate distance (ancestral sequences x known sequences) from alignments
 # get distances ready
 dm_anc_dir = paste(result_dir, "/dm_anc.Rdata", sep="")
 if (!file.exists(dm_anc_dir)) {
-  dm_anc = dist.ml(phyDat(align_anc),model="JC69")
+  dm_anc_ = dist.ml(phyDat(align_anc),model="JC69")
+  dm_anc = as.matrix(dm_anc_, sparse=T)
+  dm_anc = dm_anc[!rownames(dm_anc)%in%strains_id, colnames(dm_anc)%in%strains_id]
   save(dm_anc, file=dm_anc_dir)
 }
-dm_anc = as.matrix(get(load(dm_anc_dir)), sparse=T)
-dm_anc = dm_anc[!rownames(dm_anc)%in%strains_id, colnames(dm_anc)%in%strains_id]
+dm_anc = get(load(dm_anc_dir))
 strains_anc = sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[1])
 dates_anc = as.Date(sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[2]))
 names(dates_anc) = strains_anc
