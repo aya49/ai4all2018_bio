@@ -18,7 +18,7 @@ output:
 ---
 
 ```{r, echo=F, message=F, warning=F}
-knitr::opts_chunk$set(echo=T, warning=F, results='hold')
+knitr::opts_chunk$set(echo=T, warning=F, fig.show="hold", results="hold", collapse=TRUE)
 ```
 
 # logistics
@@ -98,13 +98,11 @@ tree_UPGMA = upgma(dm)
 plot(tree_UPGMA, show.tip.label=F, main="UPGMA")
 ```
 
-## neighbour joining (nj)
+## neighbour joining
 
-infer the tree using nj
+infer the tree using neighbour joining
 
 ```{r}
-# mt = modelTest(align_n)
-# print(mt)
 tree_NJ = NJ(dm)
 plot(tree_NJ, main="Phylogeny: Neighbour Joining", show.tip.label=F)
 tree = ladderize(tree_NJ)
@@ -122,7 +120,7 @@ parsimony(tree_NJ, align_n)
 
 optim.parsimony tries to find the maximum parsimony tree using either Nearest Neighbor Interchange (NNI) rearrangements or sub tree pruning and regrafting (SPR).
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 tree_optim = optim.parsimony(tree_NJ,align_n)
 tree_pratchet = pratchet(align_n)
 plot(tree_optim, main="Phylogeny: Maximum Parsimony NNI", show.tip.label=F)
