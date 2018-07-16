@@ -1,0 +1,199 @@
+---
+title: "Predicyion the future strains"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+remember to change "root" to your home directory!
+
+```{r}
+# load packages
+library(ape)
+library(phangorn)
+library(phytools)
+library(apTreeshape)
+library(igraph)
+library(phyloTop)
+library(treeCentrality)
+library(DMwR)
+library(outliers)
+library(e1071)
+library(ROCR)
+# set paths
+root = "~/projects/ai4all-sfu_bio"
+# load the data
+Auxdata=read.csv("Aux_Data.csv")
+Auxdata=Auxdata[,2:3]
+df=read.csv("df.csv",sep= ",",stringsAsFactors=FALSE)
+df=df[2:nrow(df),2:ncol(df)]
+nrow(df)
+names(df)=c("Clade","number_of_tips","number_of_tips_prune","sackin",
+            "colless","Variance","I2","B1","avgLadder","ILnumber","pitchforks",
+            "maxHeight","MaxWidth","DelW","Stairs1","Stairs2","Cherries","BS","descinm","getstattest","skewness","kurtosis","tips_pairwise_distance","tips_pairwise_distance_max",
+            "diameter", "WienerIndex", "betweenness", "closeness", "eigenvector","Labels")
+tree=read.tree("FinalH3N2.tree")
+#prepare the dataset
+df$number_of_tips <- as.numeric(df$number_of_tips)
+df$number_of_tips_prune <- as.numeric(df$number_of_tips_prune)
+df$sackin<- as.numeric(df$sackin)
+df$colless <- as.numeric(df$colless)
+df$Variance <- as.numeric(df$Variance)
+df$I2 <- as.numeric(df$I2)
+df$B1 <- as.numeric(df$B1)
+df$avgLadder <- as.numeric(df$avgLadder)
+df$ILnumber  <- as.numeric(df$ILnumber)
+df$pitchforks <- as.numeric(df$pitchforks)
+df$maxHeight <- as.numeric(df$maxHeight)
+df$MaxWidth <-as.numeric(df$MaxWidth)
+df$DelW <- as.numeric(df$DelW)
+df$Stairs1 <- as.numeric(df$Stairs1)
+df$Stairs2 <- as.numeric(df$Stairs2)
+df$Cherries <- as.numeric(df$Cherries)
+df$BS <- as.numeric(df$BS )
+df$descinm <- as.numeric(df$descinm )
+df$getstattest<- as.numeric(df$getstattest)
+df$skewness <- as.numeric(df$skewness)
+df$kurtosis<- as.numeric(df$kurtosis)
+df$tips_pairwise_distance<- as.numeric(df$tips_pairwise_distance)
+df$tips_pairwise_distance_max<- as.numeric(df$tips_pairwise_distance_max)
+df$tips_pairwise_distance_max<- as.numeric(df$tips_pairwise_distance_max)
+df$diameter<- as.numeric(df$diameter)
+df$WienerIndex<- as.numeric(df$WienerIndex)
+df$betweenness<- as.numeric(df$betweenness)
+df$closeness<- as.numeric(df$closeness)
+df$eigenvector <-as.numeric(df$eigenvector)
+df$Labels=as.factor(df$Labels)
+
+scaled.df <- scale(df[,3:(ncol(df)-1)])
+df1=cbind(as.data.frame(df[,1:2]),scaled.df)
+df=cbind(df1,df$Labels)
+
+names(df)=c("Clade","NumberofTipsMain","NumberofTips","sackin",
+            "colless","Variance","I2","B1","avgLadder","ILnumber","pitchforks",
+            "maxHeight","MaxWidth","DelW","Stairs1","Stairs2","Cherries","BS","descinm","getstattest","skewness","kurtosis","MeanPairwiseDist","MaxPairwiseDist",
+            "diameter", "WienerIndex", "betweenness", "closeness", "eigenvector","Labels")
+#remove NA's
+rm=which(is.na(df), TRUE)
+df=df[-rm,]
+#remove the outliers
+df_outlier=df[,3:(ncol(df)-1)]
+outlier.scores <- lofactor(df_outlier, k=5)
+#plot(density(outlier.scores))
+# pick top 5 as outliers
+outliers <- order(outlier.scores, decreasing=T)[1:5]
+# who are outliers
+#print(outliers)
+df=df[-outliers,]
+
+
+```
+
+
+Train on the strains before year 2015 and test on the latest strain(after 2015)
+clades rooted at 10563 to 11927 are used for test.
+
+```{r}
+clades=df[,1]
+test_ind=c()
+for(i in 1:length(clades)){
+  t=extract.clade(tree,as.numeric(clades[i]))
+  labels=t$tip.label
+  ind=match(labels,Auxdata[,1])
+  dates=Auxdata[ind,2]
+  dates=as.Date(dates)
+  start=min(dates)
+  if(start >= "2015-01-01"){test_ind=c(test_ind,i)}
+}
+train<- df[-test_ind, ]
+test <- df[test_ind, ]
+dim(train)
+dim(test)
+
+train=train[,3:ncol(train)]
+test=test[,3:ncol(test)]
+
+```
+
+tune the parameters to choose the best parameters
+
+```{r}
+tune.out=tune(svm, Labels ~ .,
+              data = train,kernel ="radial",ranges=list(gamma = 2^c(-5:5),cost=2^c(-5:5)),
+              coef0 =0,degree =3,nu = 0.5,class.weigth=c("0"=0.45,"1"=0.55))
+tune.out
+```
+
+build the model
+
+```{r}
+svm.fit = svm(data = train, Labels ~.,
+              kernel ="radial", degree = 3, gamma = 0.03125 , 
+              coef0 = 3, cost =2, nu = 0.5,class.weigth=c("0"=0.45,"1"=0.55))
+
+
+svm.prob <- predict(svm.fit, newdata = test)
+summary(svm.prob)
+```
+
+evaluate the model
+
+```{r}
+table(test$Labels,svm.prob)
+agreement <- svm.prob == test$Labels
+table(agreement)
+prop.table(table(agreement))
+
+
+#computing the true possitive rate
+p=length(which(test$Labels==1))
+TP=which(test$Labels==1)
+TP=length(which(svm.prob[TP]==1))
+TPR=TP/p
+TPR
+
+#computing the true negative rate
+N=length(which(test$Labels==0))
+TN=which(test$Labels==0)
+TN=length(which(svm.prob[TN]==0))
+TNR=TN/N
+TNR
+#computing the false positive rate
+P=length(which(test$Labels==0))
+FP=which(test$Labels==0)
+FP=length(which(svm.prob[FP]==1))
+FPR=FP/P
+FPR
+
+#computing the false negative rate
+P=length(which(test$Labels==1))
+FN=which(test$Labels==1)
+FN=length(which(svm.prob[FN]==0))
+FNR=FN/P
+FNR
+
+#compute the AUC
+svmmodel.predict<-predict(svm.fit, newdata = test,decision.values=TRUE)
+svmmodel.probs<-attr(svmmodel.predict,"decision.values")
+svmmodel.class<-predict(svm.fit,test,type="class")
+svmmodel.labels<-test$Labels
+
+#roc analysis for test data
+svmmodel.prediction<-prediction(svmmodel.probs,svmmodel.labels)
+svmmodel.performance<-performance(svmmodel.prediction,"tpr","fpr")
+svmmodel.auc<-performance(svmmodel.prediction,"auc")@y.values[[1]]
+
+```
+
+plot the AUC
+
+```{r}
+plot(svmmodel.performance,type="l", col="blue")
+round(svmmodel.auc,2)
+legend("bottomright", legend=c("AUC=0.90"), fill=c("blue"), cex=0.7)
+```
+
+

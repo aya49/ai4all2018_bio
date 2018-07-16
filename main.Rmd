@@ -18,7 +18,7 @@ output:
 ---
 
 ```{r, echo=F, message=F, warning=F}
-knitr::opts_chunk$set(echo=T, warning=F, fig.show="hold", results="hold", collapse=TRUE)
+knitr::opts_chunk$set(echo=T, warning=F, fig.show="hold", results="hold")
 ```
 
 # logistics
@@ -27,8 +27,9 @@ remember to change "root" to your home directory!
 
 ```{r message=F, warning=F}
 # load packages
-pkgs = c("ape", "phangorn", "seqinr", "phytools", 
-         "plotly", "dplyr", "tidyr", "Matrix",
+pkgs = c("ape", "phangorn", "seqinr", "phytools", "apTreeshape", "DMwR",
+         "phyloTop", "outliers", "e1071", "ROCR",
+         "igraph", "plotly", "dplyr", "tidyr", "Matrix",
          "geosphere", "leaflet")
 pkgs_ui = setdiff(pkgs, rownames(installed.packages()))
 if (length(pkgs_ui) > 0) install.packages(pkgs_ui, verbose=F)
@@ -40,6 +41,11 @@ root = "~/projects/ai4all-sfu_bio"
 seq_dir = paste(root, "/data/FASTA.fa", sep="") #original genetic sequence
 meta_dir = paste(root, "/data/meta.csv", sep="")
 align_dir = paste(root, "/data/alignment.fa", sep="")
+
+aux_dir = paste(root, "/data/Aux_Data.csv", sep="")
+df_dir = paste(root, "/data/df.csv", sep="")
+tree_rax_dir = paste(root, "/data/FinalH3N2.tree", sep="")
+
 
 result_dir_ = paste(root, "/result", sep=""); dir.create(result_dir_, showWarnings=F)
 
@@ -76,7 +82,7 @@ if (result_time_ == "") {
   write.csv(sam_ind, file=ind_dir, row.names=F)
 }
 sam_ind = read.csv(ind_dir, stringsAsFactors=F)[,1]
-sam_ind
+# sam_ind
 ```
 
 # infer phylogeny (ancestral tree)
@@ -109,6 +115,10 @@ tree = ladderize(tree_NJ)
 plot(tree, main="Phylogeny: Neighbour Joining", show.tip.label=F)
 is.rooted(tree_NJ) #is tree rooted
 is.binary(tree_NJ) #are tree branches binary
+
+# save to use in a later section
+tree_dir = paste(result_dir, "/tree_NJ.Rdata", sep="")
+if (!file.exists(tree_dir)) save(tree_NJ, file=tree_dir)
 ```
 
 but which of these trees is a better fit for your data? Using the parsimony() function, you can compare their respective parsimony scores. 
@@ -159,9 +169,10 @@ plot(tree_JC, type="phylogram",  lab4ut="horizontal", edge.width = 2, show.tip.l
 ## reconstruct ancestrial sequences
 
 ```{r}
-# what tree do we want to do ancestral sequence reconstruction for?
+# define what tree we want to do ancestral sequence reconstruction for; since we saved this tree_NJ before, let's use this one
 tree_type = "NJ"
 tree = tree_NJ
+if (file.exists(tree_dir)) tree = get(load(tree_dir))
 
 # convert alignment format
 align_npd = phyDat(align_n) 
@@ -179,16 +190,20 @@ align known influenza virus with ancestral sequences; known strains must have a 
 ```{r}
 # get sequences ready (combine ancestral with known strains)
 seqa_dir = paste(result_dir, "/FASTA_anc.fa", sep="")
-sequ_anc = as.DNAbin(lapply(anc, function(x) colnames(x)[apply(x,1,function(y) which.max(y))] ))
-write.dna(sequ_anc, file=seqa_dir, format="fasta")
-
-sequ = read.dna(seq_dir, format="fasta")
-sequ_anc = read.dna(seqa_dir, format="fasta", as.matrix=F)
-
 seq_all_dir = paste(result_dir, "/FASTA_all.fa", sep="")
-sequ_all = append(sequ_anc, sequ)
-sequ_all = sequ_all[!(duplicated(names(sequ_all)) | duplicated(names(sequ_all),fromLast=T))] # leaf sequences not included in distance calulcation
-write.dna(sequ_all, file=seq_all_dir, format="fasta")
+
+# merge ancestral and unknown sequences
+if (!file.exists(seq_all_dir)) {
+  sequ = read.dna(seq_dir, format="fasta")
+  sequ_anc = as.DNAbin(lapply(anc, function(x) colnames(x)[apply(x,1,function(y) which.max(y))] ))
+  write.dna(sequ_anc, file=seqa_dir, format="fasta")
+  
+  sequ_anc = read.dna(seqa_dir, format="fasta", as.matrix=F)
+  
+  sequ_all = append(sequ_anc, sequ)
+  sequ_all = sequ_all[!(duplicated(names(sequ_all)))] # leaf sequences not included in distance calulcation
+  write.dna(sequ_all, file=seq_all_dir, format="fasta")
+}
 
 # align sequences, install mafft @ (https://mafft.cbrc.jp/alignment/software/)
 align_anc_dir = paste(result_dir, "/alignment_anc.fa", sep="")
@@ -196,7 +211,7 @@ if (!file.exists(align_anc_dir)) system(paste("mafft ", seq_all_dir, " > ", alig
 align_anc = read.dna(align_anc_dir, format="fasta")
 ```
 
-calculate distance (ancestral sequences x known sequences) from alignments
+### calculate distance from alignments
 
 ```{r}
 # get distances ready
@@ -204,16 +219,18 @@ dm_anc_dir = paste(result_dir, "/dm_anc.Rdata", sep="")
 if (!file.exists(dm_anc_dir)) {
   dm_anc_ = dist.ml(phyDat(align_anc),model="JC69")
   dm_anc = as.matrix(dm_anc_, sparse=T)
-  dm_anc = dm_anc[!rownames(dm_anc)%in%strains_id, colnames(dm_anc)%in%strains_id]
+  tree_inds = !rownames(dm_anc)%in%strains_id | rownames(dm_anc)%in%sam_ind
+  dm_anc = dm_anc[tree_inds, !tree_inds]
   save(dm_anc, file=dm_anc_dir)
 }
 dm_anc = get(load(dm_anc_dir))
-strains_anc = sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[1])
-dates_anc = as.Date(sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[2]))
-names(dates_anc) = strains_anc
+strains_kn = sapply(strsplit(rownames(dm_anc),"[-]"), function(x) x[1])
+strains_unkn = sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[1])
+dates_unkn = as.Date(sapply(strsplit(colnames(dm_anc),"[-]"), function(x) x[2]))
+names(dates_unkn) = strains_unkn
 ```
 
-label tree nodes
+### label tree nodes
 
 ```{r}
 evo_month = 444 # max number of months needed for a parent strain to evolve into a child strain (max = 444)
@@ -227,36 +244,64 @@ edges = tree$edge[order(tree$edge[,2]),] #first nseq nodes are leaves
 edges[1:nseq,2] = tree$tip.label
 edges[,2] = sapply(strsplit(edges[,2], "[-]"), function(x) x[1])
 
-tree_labelled = T
 nodes = unique(as.vector(edges))
-node = unique(edges[!edges[,1]%in%edges[,2],1]) #root
+node = unique(edges[!edges[,1]%in%edges[,2],1]) #root as the starting node
+```
+
+**try it yourself :)**
+
+given the starting node, all nodes, and edges, try labelling all the non-leaf nodes with virus strains (i.e. the numbers inside 'nodes' and 'edges' should should be replaced by strain names (e.g. KY583561)) following the constrains below:
+- parent nodes should be a strain had a sampling date earlier than child nodes
+- parent nodes should be a strain that are most similar to the inferred parent strain (labelled as numbers on the 'rownames(dm_anc)') i.e. have the shortest distance in dm_anc matrix (ancestral sequences x known sequences)
+- tip: you can use 'as.Date' to convert character dates into date variables so that you can use the '<', '>' to compare earlier or later dates!
+
+```{r echo=FALSE}
+tree_labelled = T
+# while there are still strains unlabelled
 while (sum(!nodes%in%strains)>0) {
+  # find children of selected node
   children = sapply(strsplit(edges[edges[,1]==node, 2], "[-]"), function(x) x[1])
+  # if we haven't reached the leaf nodes yet, continue going deeper into the tree
+  # otherwise, find parent strain with date earlier than children and is closest to children
   if (any(!children%in%strains)) {
     node = children[!children%in%strains]
     node = node[1]
   } else {
+    # get indices of candidate parent strains
     min_date = min(as.Date(as.character(meta[children, "date"])))
     min_date_ = seq(min_date, length=2, by="-6 months")[2]
-    dm_colind = which(dates_anc < min_date & dates_anc > min_date_ &
-                        !names(dates_anc)%in%edges)
+    dm_colind = which(dates_unkn < min_date & dates_unkn > min_date_ &
+                        !names(dates_unkn)%in%nodes)
     if (length(dm_colind)==0) {
       print("incomplete! need data on older strains")
       tree_labelled = F; break()
     }
-    edges[edges==node] = nodes[nodes==node] = node_strain = 
-      names(dm_colind[which.min(dm_anc[node, dm_colind])])
+    # get parent strain that is closest to inferred ancestral strain
+    parent = names(dm_colind[which.min(dm_anc[node, dm_colind])])
+    edges[edges==node] = nodes[nodes==node] = node_strain = parent
     # nodes_in = setdiff(nodes_in, node)
     node = edges[edges[,2]==node_strain, 1]
   }
 }
+save(edges, file=paste(result_dir,"/edges.Rdata", sep=""))
+save(nodes, file=paste(result_dir,"/nodes.Rdata", sep=""))
 ```
 
-## plot
+check your answers:
+
+```{r}
+edges_t = get(load(paste(result_dir,"/edges.Rdata", sep=""))) # this is what 'edges' should look like
+nodes_t = get(load(paste(result_dir,"/nodes.Rdata", sep=""))) # this is what 'nodes' should look like
+```
+
+## plot infection pathway
 
 prepare nodelist virus & edgelist vphy
 
 ```{r}
+edges = edges_t
+nodes = nodes_t
+
 # viral strains
 virus = meta[nodes, c("strain", "subtype", "date", "lng", "lat")]
 
@@ -302,3 +347,186 @@ let's see where the root strain comes from
 meta[unique(edges[!edges[,1]%in%edges[,2],1]),] # root strain
 # meta[unique(edges[!edges[,2]%in%edges[,1],2]),] # leaf strains
 ```
+
+# predict future influenza strains
+
+we assume that only the strongest influenza virus strain will sruvive to cause the influenza in the coming season; therefore, we try to predict which strains, out of all the strains we have collected, will survive
+
+## load and clean input data
+
+```{r}
+# load the data
+Auxdata=read.csv(aux_dir)[,2:3]
+df=read.csv(df_dir,sep=",",stringsAsFactors=F)[-1,-1]
+nrow(df)
+names(df)=c("Clade","number_of_tips","number_of_tips_prune","sackin",
+            "colless","Variance","I2","B1","avgLadder","ILnumber","pitchforks",
+            "maxHeight","MaxWidth","DelW","Stairs1","Stairs2","Cherries","BS","descinm","getstattest","skewness","kurtosis","tips_pairwise_distance","tips_pairwise_distance_max",
+            "diameter", "WienerIndex", "betweenness", "closeness", "eigenvector","Labels")
+tree=read.tree(tree_rax_dir)
+
+#prepare the dataset
+df$number_of_tips = as.numeric(df$number_of_tips)
+df$number_of_tips_prune = as.numeric(df$number_of_tips_prune)
+df$sackin = as.numeric(df$sackin)
+df$colless = as.numeric(df$colless)
+df$Variance = as.numeric(df$Variance)
+df$I2 = as.numeric(df$I2)
+df$B1 = as.numeric(df$B1)
+df$avgLadder = as.numeric(df$avgLadder)
+df$ILnumber  = as.numeric(df$ILnumber)
+df$pitchforks = as.numeric(df$pitchforks)
+df$maxHeight = as.numeric(df$maxHeight)
+df$MaxWidth  = as.numeric(df$MaxWidth)
+df$DelW = as.numeric(df$DelW)
+df$Stairs1 = as.numeric(df$Stairs1)
+df$Stairs2 = as.numeric(df$Stairs2)
+df$Cherries = as.numeric(df$Cherries)
+df$BS = as.numeric(df$BS )
+df$descinm = as.numeric(df$descinm )
+df$getstattest =  as.numeric(df$getstattest)
+df$skewness = as.numeric(df$skewness)
+df$kurtosis =  as.numeric(df$kurtosis)
+df$tips_pairwise_distance =  as.numeric(df$tips_pairwise_distance)
+df$tips_pairwise_distance_max =  as.numeric(df$tips_pairwise_distance_max)
+df$tips_pairwise_distance_max =  as.numeric(df$tips_pairwise_distance_max)
+df$diameter =  as.numeric(df$diameter)
+df$WienerIndex =  as.numeric(df$WienerIndex)
+df$betweenness =  as.numeric(df$betweenness)
+df$closeness =  as.numeric(df$closeness)
+df$eigenvector  = as.numeric(df$eigenvector)
+df$Labels=as.factor(df$Labels)
+
+scaled.df = scale(df[,3:(ncol(df)-1)])
+df1=cbind(as.data.frame(df[,1:2]),scaled.df)
+df=cbind(df1,df$Labels)
+
+names(df)=c("Clade","NumberofTipsMain","NumberofTips","sackin",
+            "colless","Variance","I2","B1","avgLadder","ILnumber","pitchforks",
+            "maxHeight","MaxWidth","DelW","Stairs1","Stairs2","Cherries","BS","descinm","getstattest","skewness","kurtosis","MeanPairwiseDist","MaxPairwiseDist",
+            "diameter", "WienerIndex", "betweenness", "closeness", "eigenvector","Labels")
+
+#remove NA's
+rm=which(is.na(df), TRUE)
+df=df[-rm,]
+
+#remove the outliers
+df_outlier=df[,3:(ncol(df)-1)]
+outlier.scores = lofactor(df_outlier, k=5)
+# plot(density(outlier.scores))
+
+# pick top 5 as outliers
+outliers = order(outlier.scores, decreasing=T)[1:5]
+
+# who are outliers? remove them
+#print(outliers)
+df=df[-outliers,]
+
+
+```
+
+## build prediction model
+
+we train the prediction model on the strains before year 2015 and test on the latest strains (after 2015) clades rooted at 10563 to 11927 (are used for testing)
+
+```{r}
+clades=df[,1]
+test_ind=c()
+for(i in 1:length(clades)){
+  t=extract.clade(tree,as.numeric(clades[i]))
+  labels=t$tip.label
+  ind=match(labels,Auxdata[,1])
+  dates=Auxdata[ind,2]
+  dates=as.Date(dates)
+  start=min(dates)
+  if(start >= "2015-01-01"){test_ind=c(test_ind,i)}
+}
+train =  df[-test_ind, ]
+test = df[test_ind, ]
+dim(train)
+dim(test)
+
+train=train[,3:ncol(train)]
+test=test[,3:ncol(test)]
+
+```
+
+**try it yourself :)**
+
+tune the parameters to choose the best parameters
+
+```{r}
+tune.out=tune(svm, Labels ~ .,
+              data = train,kernel ="radial",ranges=list(gamma = 2^c(-5:5),cost=2^c(-5:5)),
+              coef0 =0,degree =3,nu = 0.5,class.weigth=c("0"=0.45,"1"=0.55))
+tune.out
+```
+
+build the model (SVM)
+
+```{r}
+svm.fit = svm(data = train, Labels ~.,
+              kernel ="radial", degree = 3, gamma = 0.03125 , 
+              coef0 = 3, cost =2, nu = 0.5,class.weigth=c("0"=0.45,"1"=0.55))
+
+svm.prob = predict(svm.fit, newdata = test)
+summary(svm.prob)
+```
+
+## evaluate the model
+
+finally, we calculate metrics to evaluate how well prediction model did
+
+```{r}
+table(test$Labels,svm.prob)
+agreement = svm.prob == test$Labels
+table(agreement)
+prop.table(table(agreement))
+
+#computing the true possitive rate
+p=length(which(test$Labels==1))
+TP=which(test$Labels==1)
+TP=length(which(svm.prob[TP]==1))
+TPR=TP/p
+TPR
+
+#computing the true negative rate
+N=length(which(test$Labels==0))
+TN=which(test$Labels==0)
+TN=length(which(svm.prob[TN]==0))
+TNR=TN/N
+TNR
+#computing the false positive rate
+P=length(which(test$Labels==0))
+FP=which(test$Labels==0)
+FP=length(which(svm.prob[FP]==1))
+FPR=FP/P
+FPR
+
+#computing the false negative rate
+P=length(which(test$Labels==1))
+FN=which(test$Labels==1)
+FN=length(which(svm.prob[FN]==0))
+FNR=FN/P
+FNR
+
+#compute the AUC
+svmmodel.predict = predict(svm.fit, newdata = test,decision.values=TRUE)
+svmmodel.probs = attr(svmmodel.predict,"decision.values")
+svmmodel.class = predict(svm.fit,test,type="class")
+svmmodel.labels = test$Labels
+
+#roc analysis for test data
+svmmodel.prediction = prediction(svmmodel.probs,svmmodel.labels)
+svmmodel.performance = performance(svmmodel.prediction,"tpr","fpr")
+svmmodel.auc = performance(svmmodel.prediction,"auc")@y.values[[1]]
+```
+
+plot the AUC (area under curve)
+
+```{r}
+plot(svmmodel.performance,type="l", col="blue")
+round(svmmodel.auc,2)
+legend("bottomright", legend=c("AUC=0.90"), fill=c("blue"), cex=0.7)
+```
+
