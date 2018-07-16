@@ -38,8 +38,8 @@ data folder contains processed data (FASTA.fa, meta.csv are outputs of [prep_dat
 - meta.csv: metadata merged, and sorted by date the same way as FASTA.fa 
 - alignment.fa: viral strain sequence alignments of mafft made using FASTA.fa 
 - Aux_data.csv: contains all the strain name and date from FASTA.fa
-- df.csv: features for each strain/clade
 - FinalH3N2: maximum likelihood generated phylogeny made from FASTA.fa
+- df.csv: features for each strain/clade used for prediction
 
 result/\<date\>\_\<time\> folder contains results separated by time of making (output of [main.Rmd](main.Rmd))
 - ind.csv: randomly sampled strain names of 200 recent viral sequences
