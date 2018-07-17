@@ -258,11 +258,11 @@ given the starting node, all nodes, and edges, try labelling all the non-leaf no
 ```{r echo=FALSE}
 tree_labelled = T
 # while there are still strains unlabelled
-while (sum(!nodes%in%strains)>0) {
+while (!all(nodes%in%strains)) {
   # find children of selected node
   children = sapply(strsplit(edges[edges[,1]==node, 2], "[-]"), function(x) x[1])
-  # if we haven't reached the leaf nodes yet, continue going deeper into the tree
-  # otherwise, find parent strain with date earlier than children and is closest to children
+  # if not all child nodes are strains, pick first one and go down deeper
+  # otherwise, find a unknown strain not in tree yet with date earlier than children and is closest to the inferred current strain
   if (any(!children%in%strains)) {
     node = children[!children%in%strains]
     node = node[1]
@@ -270,11 +270,15 @@ while (sum(!nodes%in%strains)>0) {
     # get indices of candidate parent strains
     min_date = min(as.Date(as.character(meta[children, "date"])))
     min_date_ = seq(min_date, length=2, by="-6 months")[2]
-    dm_colind = which(dates_unkn < min_date & dates_unkn > min_date_ &
-                        !names(dates_unkn)%in%nodes)
+    dm_colind = which(dates_unkn < min_date & 
+                        dates_unkn > min_date_ &
+                        !names(dates_unkn)%in%nodes & 
+                        !strains_unkn%in%nodes)
+    # if no strains satisfy our contraints, end loop
     if (length(dm_colind)==0) {
       print("incomplete! need data on older strains")
-      tree_labelled = F; break()
+      tree_labelled = F
+      break()
     }
     # get parent strain that is closest to inferred ancestral strain
     parent = names(dm_colind[which.min(dm_anc[node, dm_colind])])
