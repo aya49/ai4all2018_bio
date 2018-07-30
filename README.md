@@ -1,7 +1,4 @@
-# bio
-**The bioinformatics project**: Inferring the infection pathway of influenza
-
-2018 SFU Invent the Future
+# 2018 SFU Invent the Future Summer Scholar Program: Inferring the infection pathway of influenza
 
 In this project, students will learn how computational biology can allow us to 1) infer ancestral strains and 2) predict future strains of viruses -- in order to understand the infection pathway of influenza and preventatively make vaccines before outbreaks occur. 
 
@@ -49,6 +46,32 @@ result/\<date\>\_\<time\> folder contains results separated by time of making (o
 - dm\_anc.Rdata: distance matrix made using alignment\_anc.fa
 
 
+## extra packages
+
+if you are having issues installing packages in the script, install the following packages in the order listed (note: install miniconda [here](https://conda.io/docs/user-guide/install/index.html)); courtesy of raquel
+
+terminal
+```{bash}
+source activate py27
+conda install -c r r-e1071 
+conda install -c r r-igraph 
+conda install -c geraldmc r-phylotop 
+conda install -c r r-nloptr
+conda install -c r r-xml 
+```
+r
+```{r}
+install.packages('phangorn') 
+install.packages('phytools')
+install.packages('nloptr') 
+install.packages('lme4') 
+install.packages('pbkrtest') 
+install.packages('car') 
+install.packages('NHPoisson') 
+install.packages('RNeXML') 
+install.packages('phylobase') 
+install.packages('phyloTop') 
+```
 
 
 
