@@ -1,4 +1,5 @@
-# 2018 SFU Invent the Future Summer Scholar Program: Inferring the infection pathway of influenza
+# Inferring the infection pathway of influenza
+2018 SFU Invent the Future Summer Scholar Program
 
 In this project, students will learn how computational biology can allow us to 1) infer ancestral strains and 2) predict future strains of viruses -- in order to understand the infection pathway of influenza and preventatively make vaccines before outbreaks occur. 
 
