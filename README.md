@@ -17,20 +17,20 @@ Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1
 
 1. install mafft (for multiple sequence alignment) @ [https://mafft.cbrc.jp/alignment/software/](https://mafft.cbrc.jp/alignment/software/)
 
-2. download this repository and follow the R code in **[main.html](main.html)**; remember to **change the variable " root "** to the local folder you downloaded this repository to, and if you are starting anew, **set " result\_time\_="" "**
+2. download this repository and follow the R code in **[index.html](index.html)**; remember to **change the variable " root "** to the local folder you downloaded this repository to, and if you are starting anew, **set " result\_time\_="" "**
 
 ## folder/file structure
 
 code, ran in the following order
 - [prep_linux.Rmd](prep_linux.Rmd): only for linux users; installs necessary system packages
 - [prep_data.R](prep_data.R): preprocess data
-- [main.Rmd](main.Rmd): main curriculum; html render [main.html](main.html)
+- [index.Rmd](index.Rmd): main curriculum; html render [index.html](index.html)
 
 data_ folder contains original data (not to be modified)
 - FASTA.fa: viral strain sequences
 - meta\_\<database\>: metadata from different databases; ncbi has country and all strains, fludb has country & state and some strains
 
-data folder contains processed data (FASTA.fa, meta.csv are outputs of [prep_data.R](prep_data.R); alignment.fa is an output of [main.Rmd](main.Rmd))
+data folder contains processed data (FASTA.fa, meta.csv are outputs of [prep_data.R](prep_data.R); alignment.fa is an output of [index.Rmd](index.Rmd))
 - FASTA.fa: the HA gene sequence in influenza subtype A/H3N2 from years 1997 - 2017 (sorted by date) (n = 10370)
 - meta.csv: metadata merged, and sorted by date the same way as FASTA.fa 
 - alignment.fa: viral strain sequence alignments of mafft made using FASTA.fa 
@@ -38,7 +38,7 @@ data folder contains processed data (FASTA.fa, meta.csv are outputs of [prep_dat
 - FinalH3N2: maximum likelihood generated phylogeny made from FASTA.fa
 - df.csv: features for each strain/clade used for prediction
 
-result/\<date\>\_\<time\> folder contains results separated by time of making (output of [main.Rmd](main.Rmd))
+result/\<date\>\_\<time\> folder contains results separated by time of making (output of [index.Rmd](index.Rmd))
 - ind.csv: randomly sampled strain names of 200 recent viral sequences
 - FASTA\_anc.fa: reconstructed ancestral sequences
 - FASTA\_all.fa: data/FASTA.fa (minus the 200 sequences) + reconstructed ancestral sequences
