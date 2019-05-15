@@ -20,7 +20,7 @@ Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1
 
 1. install mafft (for multiple sequence alignment) @ [https://mafft.cbrc.jp/alignment/software/](https://mafft.cbrc.jp/alignment/software/)
 
-2. download this repository and follow the R code in **[index.html](https://aya49.github.io/ai4all-sfu_bio/)**; remember to **change the variable " root "** to the local folder you downloaded this repository to, and if you are starting anew, **set " result\_time\_="" "**
+2. download this repository and follow the R code in **[index.html](index.html)**; remember to **change the variable " root "** to the local folder you downloaded this repository to, and if you are starting anew, **set " result\_time\_="" "**
 
 ## folder/file structure
 
