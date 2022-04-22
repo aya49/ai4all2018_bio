@@ -11,7 +11,7 @@ Homepage: https://sites.google.com/view/ai4all-sfu2018/projects/bioinformatics
 
 Github repository: https://github.com/ai4all-sfu/bio
 
-Github page: https://aya49.github.io/ai4all-sfu_bio
+Github page: https://aya49.github.io/ai4all2018_bio
 
 Slides: https://docs.google.com/presentation/d/1XpPjTZGQP1KkpAeiDjAUfz-uCqQMs2x1_a4lo_aJa3o/edit?usp=sharing
 
